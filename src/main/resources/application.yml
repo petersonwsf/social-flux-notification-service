@@ -1,0 +1,77 @@
+spring:
+  application:
+    name: notification-service
+  datasource:
+    # Banco PRÓPRIO do serviço (um banco por serviço). Reaproveita, por padrão, as credenciais do authentication_service
+    # (IDENTITY_DB_USER/IDENTITY_DB_PASSWORD) na mesma instância PostgreSQL; sobrescreva com NOTIFICATION_DB_* se quiser um role próprio.
+    url: ${NOTIFICATION_DB_URL:jdbc:postgresql://localhost:5432/${NOTIFICATION_DB_NAME:notification}}
+    username: ${NOTIFICATION_DB_USER:${IDENTITY_DB_USER:notification}}
+    password: ${NOTIFICATION_DB_PASSWORD:${IDENTITY_DB_PASSWORD:}}
+  flyway:
+    enabled: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: simple
+    listener:
+      simple:
+        default-requeue-rejected: false     # falhou após as tentativas -> fila de mensagens mortas (DLQ)
+        retry:
+          enabled: true
+          max-attempts: 5
+          initial-interval: 1s
+          multiplier: 2
+
+server:
+  port: ${SERVER_PORT:8085}
+  forward-headers-strategy: framework
+  error:
+    include-message: never
+    include-stacktrace: never
+
+management:
+  health:
+    rabbit:
+      enabled: false     # o serviço continua útil sem o broker; não derrube a readiness por isso
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+socialflux:
+  # Inbox/RabbitMQ compartilhados (libs/socialflux-events). Este serviço só CONSOME eventos (D12): o outbox existe
+  # porque a biblioteca o exige, mas nunca recebe nada.
+  events:
+    enabled: ${NOTIFICATION_EVENTS_ENABLED:true}
+    exchange: ${EVENTS_EXCHANGE:socialflux.events}
+    relay-interval: ${NOTIFICATION_OUTBOX_INTERVAL:PT0.5S}
+
+notification:
+  security:
+    # JWKS do authentication_service (chave pública). O serviço NUNCA conhece a chave privada.
+    jwks-uri: ${AUTH_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+    issuer: ${JWT_ISSUER:http://localhost:8080}
+    audience: ${JWT_AUDIENCE:socialflux-api}
+    clock-skew: ${JWT_CLOCK_SKEW:PT60S}
+  # Origens permitidas em métodos não seguros. Vazio = a própria origem (via X-Forwarded-*).
+  allowed-origins: ${NOTIFICATION_ALLOWED_ORIGINS:}
+  sse:
+    # D9: o stream fecha em no máximo 15 min (±1 min, para os clientes não reconectarem todos juntos) ou no `exp` do token.
+    max-duration: ${NOTIFICATION_SSE_MAX_DURATION:PT15M}
+    jitter: ${NOTIFICATION_SSE_JITTER:PT1M}
+    heartbeat: ${NOTIFICATION_SSE_HEARTBEAT:PT25S}
+    sweep-interval: ${NOTIFICATION_SSE_SWEEP_INTERVAL:PT5S}
+    max-per-user: ${NOTIFICATION_SSE_MAX_PER_USER:5}     # D11: o 6º fecha o mais antigo
+    max-total: ${NOTIFICATION_SSE_MAX_TOTAL:5000}
+    backlog-limit: ${NOTIFICATION_SSE_BACKLOG:50}
+  maintenance:
+    enabled: ${NOTIFICATION_MAINTENANCE_ENABLED:true}
+    interval: ${NOTIFICATION_MAINTENANCE_INTERVAL:PT1H}
+    retention: ${NOTIFICATION_RETENTION:P45D}            # D13
+    tombstone-retention: ${NOTIFICATION_TOMBSTONE_RETENTION:P7D}

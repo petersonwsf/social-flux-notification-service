@@ -1,5 +1,7 @@
 package com.socialflux.notification.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.socialflux.events.EventIds;
 import com.socialflux.notification.domain.ActorRepository;
 import com.socialflux.notification.domain.ActorSnapshot;
@@ -33,6 +35,8 @@ import java.util.UUID;
  */
 @Service
 public class NotificationWriter {
+
+    private static final Logger log = LoggerFactory.getLogger(NotificationWriter.class);
 
     public static final String LIKE = "LIKE";
     public static final String REPLY = "REPLY";
@@ -91,6 +95,7 @@ public class NotificationWriter {
         if (groups.addActor(groupId, actor, replyId, excerpt, at)) {
             groups.bumpAfterAdd(groupId, at);
             pushGroup(recipient, groupId);
+            log.debug("Notificação {} para {} atualizada (ator {})", type, recipient, actor);
         }
     }
 
@@ -127,6 +132,7 @@ public class NotificationWriter {
         groups.deleteAllOfRecipient(account);
         refresh(groups.removeActorEverywhere(account));
         push.closeAfterCommit(account, "conta_excluida");
+        log.info("Notificações da conta {} removidas (conta excluída)", account);
     }
 
     /** Marca como vistos os grupos até {@code seq} e avisa as outras abas. */

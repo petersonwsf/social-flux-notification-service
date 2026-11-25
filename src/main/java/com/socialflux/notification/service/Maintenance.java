@@ -3,6 +3,7 @@ package com.socialflux.notification.service;
 import com.socialflux.notification.config.NotificationProperties;
 import com.socialflux.notification.domain.FollowEdgeRepository;
 import com.socialflux.notification.domain.GroupRepository;
+import com.socialflux.events.logging.CorrelationId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -40,8 +41,10 @@ public class Maintenance {
         if (!properties.enabled()) {
             return;
         }
-        run("retenção das notificações", this::expireOld);
-        run("poda de túmulos", this::pruneTombstones);
+        try (CorrelationId.Scope ignored = CorrelationId.open(null)) {   // cada rodada ganha o próprio id nos logs
+            run("retenção das notificações", this::expireOld);
+            run("poda de túmulos", this::pruneTombstones);
+        }
     }
 
     public int expireOld() {

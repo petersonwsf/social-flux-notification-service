@@ -114,6 +114,7 @@ public class StreamRegistry implements NotificationPush {
         connection.queue.add(new Outgoing(null, null, String.valueOf(RETRY_MS), false, false));   // `retry:` do cliente
         list.add(connection);
         total.incrementAndGet();
+        log.info("Stream SSE aberto para {} ({} aberto(s) no total)", user, total.get());
         return connection;
     }
 
@@ -208,6 +209,7 @@ public class StreamRegistry implements NotificationPush {
         if (!connection.closing.compareAndSet(false, true)) {
             return;
         }
+        log.info("Stream SSE de {} sendo fechado (motivo {})", connection.user, reason);
         enqueue(connection, new Outgoing(PushEvent.CLOSING, null, mapper.writeValueAsString(new Dtos.Closing(reason)), false, true));
     }
 

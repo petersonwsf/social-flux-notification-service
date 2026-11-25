@@ -91,6 +91,12 @@ curtiram…") é montada no frontend. Os botões Aceitar/Recusar de `FOLLOW_REQU
 `notification_group` (um grupo por destinatário e chave) + `notification_actor` (um ator por linha), a sequence
 `notification_activity_seq`, `outbox_event` e `processed_message` (exigidos pela biblioteca de eventos).
 
+## Logs e rastreabilidade
+
+- Toda requisição carrega o `X-Correlation-Id` (o gateway cria; o `CorrelationIdFilter` de `libs/socialflux-events` o põe no MDC e o devolve na resposta) e gera uma linha de acesso (`Requisição GET /caminho respondeu 200 em 12 ms`, sem query string; health checks e `/internal/auth/verify` ficam em DEBUG). O mesmo id vai nos eventos publicados e é retomado por quem os consome, então um fluxo inteiro (ex.: cadastro → perfil → notificações) se acompanha pelo Loki/Grafana procurando o `correlationId`.
+- Em container o log sai em **JSON** (`LOGGING_STRUCTURED_FORMAT_CONSOLE=logstash` no Dockerfile; campos `level`, `message`, `correlationId`, `service`...); no host, texto com o id entre colchetes. `LOG_LEVEL` (padrão `INFO`) controla o código do projeto (`com.socialflux`); `DEBUG` mostra também o que é de alto volume. Nunca vão para o log senhas, tokens, e-mail, telefone, IP ou corpo de requisição.
+- O que este serviço registra: abertura e fechamento dos streams SSE (com o motivo), remoção das notificações de contas excluídas, as rotinas agendadas e os eventos consumidos (que originam as notificações).
+
 ## Configuração (variáveis de ambiente)
 
 | Variável | Padrão | Descrição |
